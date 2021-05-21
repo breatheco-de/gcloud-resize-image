@@ -13,13 +13,12 @@ if __name__ == '__main__':
     exit_code = os.system('pip freeze > requirements.txt')
     command = ' '.join([
         f'gcloud functions deploy {SERVICE_NAME}',
-        f'--entry-point thumbnails',
-        f'--runtime python39',
-        f'--memory 256MB',
+        '--entry-point resize',
+        '--runtime python39',
+        '--trigger-http',
+        '--memory 256MB',
         f'--service-account {GOOGLE_CLOUD_SERVICE_ACCOUNT}',
-        f'--source .',
-        f'--trigger-resource={BUCKET_NAME}',
-        f'--trigger-event=google.storage.object.finalize',
+        '--source .',
         f'--project {GOOGLE_CLOUD_PROJECT_ID}',
     ])
 

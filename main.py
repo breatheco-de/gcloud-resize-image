@@ -1,8 +1,8 @@
-import magic, logging
+import magic
 from PIL import Image
 from google.cloud import storage
 from io import BytesIO
-
+from flask import abort
 
 # you can add new mimes from here https://www.sitepoint.com/mime-types-complete-list/
 # name of formats https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
@@ -18,19 +18,32 @@ MIMES_ALLOWED = {
 }
 
 
-def thumbnails(event, context):
-    print(event)
-    if not 'name' in event or not 'bucket' in event:
-        return
+def resize(request):
+    data = request.get_json(silent=True)
 
-    BUCKET_NAME = event['bucket']
-    filename = event['name']
+    print(data)
+    if not 'filename' in data:
+        return abort(400, 'incorrect filename')
+
+    if not 'bucket' in data:
+        return abort(400, 'incorrect bucket')
+
+    if not 'width' in data or not isinstance(data['width'], int):
+        return abort(400, 'incorrect width')
+
+    if not 'height' in data or not isinstance(data['height'], int):
+        return abort(400, 'incorrect height')
+
+    bucket = data['bucket']
+    filename = data['filename']
+    width = data['width']
+    height = data['height']
 
     if filename.endswith('-thumbnail'):
-        return
+        return abort(400, 'can\'t resize a thumbnail')
 
     client = storage.Client()
-    bucket = client.bucket(BUCKET_NAME)
+    bucket = client.bucket(bucket)
     blob = bucket.get_blob(filename)
 
     with blob.open('rb') as f:
@@ -47,7 +60,7 @@ def thumbnails(event, context):
         size = (width, height)
         image = image.resize(size)
 
-        filename = f'{filename}-thumbnail'
+        filename = f'{filename}-{width}x{height}'
 
     with BytesIO() as output:
         image.save(output, format=extension)
@@ -59,3 +72,4 @@ def thumbnails(event, context):
         blob.upload_from_string(contents)
 
         print(f'{filename} was generated')
+        return 'ok'
