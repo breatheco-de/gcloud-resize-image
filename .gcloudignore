@@ -1,0 +1,9 @@
+.git
+.gitignore
+*.json
+Pipfile
+Pipfile.lock
+/scripts
+.env
+.env.example
+.gcloudignore
