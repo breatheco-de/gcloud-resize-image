@@ -2,7 +2,7 @@ import magic
 from PIL import Image
 from google.cloud import storage
 from io import BytesIO
-from flask import abort
+from flask import abort, jsonify, make_response
 
 # you can add new mimes from here https://www.sitepoint.com/mime-types-complete-list/
 # name of formats https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
@@ -19,28 +19,25 @@ MIMES_ALLOWED = {
 
 
 def resize(request):
-    data = request.get_json(silent=True)
+    data = request.get_json(force=True)
 
     print(data)
     if not 'filename' in data:
-        return abort(400, 'incorrect filename')
+        return make_response(jsonify({'message': 'Incorrect filename', 'status_code': 400}), 400)
 
     if not 'bucket' in data:
-        return abort(400, 'incorrect bucket')
+        return make_response(jsonify({'message': 'Incorrect bucket', 'status_code': 400}), 400)
 
-    if not 'width' in data or not isinstance(data['width'], int):
-        return abort(400, 'incorrect width')
-
-    if not 'height' in data or not isinstance(data['height'], int):
-        return abort(400, 'incorrect height')
+    if (not 'width' in data or not data['width']) and (not 'height' in data or not data['height']):
+        return make_response(jsonify({'message': 'Incorrect width or height', 'status_code': 400}), 400)
 
     bucket = data['bucket']
     filename = data['filename']
-    width = data['width']
-    height = data['height']
+    width = int(data['width']) if 'width' in data and data['width'] else None
+    height = int(data['height']) if 'height' in data and data['height'] else None
 
     if filename.endswith('-thumbnail'):
-        return abort(400, 'can\'t resize a thumbnail')
+        return make_response(jsonify({'message': 'Can\'t resize a thumbnail', 'status_code': 200}), 200)
 
     client = storage.Client()
     bucket = client.bucket(bucket)
@@ -54,12 +51,23 @@ def resize(request):
             extension = MIMES_ALLOWED[mime]
 
         else:
-            return
+            return make_response(jsonify({'message': 'File type not allowed', 'status_code': 400}), 400)
 
         image = Image.open(f)
+        current_width, current_height = image.size
+
+        # Aspect ratio
+        width_divide_by_height = current_width / current_height
+        height_divide_by_width = current_height / current_width
+
+        if width and not height:
+            height = round(width * height_divide_by_width)
+
+        elif not width and height:
+            width = round(height * width_divide_by_height)
+
         size = (width, height)
         image = image.resize(size)
-
         filename = f'{filename}-{width}x{height}'
 
     with BytesIO() as output:
@@ -72,4 +80,9 @@ def resize(request):
         blob.upload_from_string(contents)
 
         print(f'{filename} was generated')
-        return 'ok'
+        return make_response(jsonify({
+            'message': 'Ok',
+            'status_code': 200,
+            'width': width,
+            'height': height,
+        }), 200)
