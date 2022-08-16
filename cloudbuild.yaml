@@ -1,0 +1,26 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+
+# - name: 'gcr.io/kaniko-project/executor:latest'
+#   args:
+#   - --destination=docker.io/library/python:3.10
+#   - --cache=true
+
+# - name: 'docker.io/library/python:3.10'
+#   entrypoint: /bin/sh
+#   # Run pip install and pytest in the same build step
+#   # (pip packages won't be preserved in future steps!)
+#   args: [-c, 'pip install -r requirements-dev.txt # && pytest --disable-pytest-warnings']
+#   dir: './'
+
+- name: gcr.io/cloud-builders/gcloud
+  args: ['config', 'set', 'compute/zone', 'us-central1']
+
+- name: 'gcr.io/cloud-builders/gcloud'
+  args: [
+    'functions', 'deploy', 'resize-image', '--trigger-http', '--runtime', 'python310',
+    '--entry-point', 'main', '--region', 'us-central1'
+  ]
+  dir: './'
